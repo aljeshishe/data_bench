@@ -17,14 +17,14 @@ from . import utils
 
 @attr.define(slots=False, kw_only=True)
 class DaskReadTest(StorageTest):
-    engine: str = "auto"
+    engine: str = "pyarrow"
     
     @property
     def param_names(self):
         return ["engine", "storage"]
     
     def _setup(self):
-        utils.dask_df(rows=self.params.rows, cols=self.params.cols).to_parquet(self.path)
+        utils.dask_df(rows=self.params.rows, cols=self.params.cols).to_parquet(self.path, engine=self.engine)
     
     def _run(self):
         dd.read_parquet(self.path, engine=self.engine).persist()

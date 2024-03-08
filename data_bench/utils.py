@@ -12,16 +12,17 @@ import pandas as pd
 import numpy as np
 import boto3
 
-def remove(path: Path | str):
+def remove(path:  str):
+    if str(path).startswith("s3"):
+        parsed = urllib.parse.urlparse(path)
+        boto3.resource('s3').Bucket(parsed.netloc).objects.filter(Prefix=parsed.path.lstrip("/")).delete()
+        return 
+        
     path = Path(path)
     if path.is_dir():
         shutil.rmtree(path)
     elif path.is_file():
         path.unlink()
-    elif str(path).startswith("s3"):
-        parsed = urllib.parse.urlparse(path)
-        boto3.client("s3").delete_object(Bucket=parsed.netloc, Key=parsed.path.lstrip("/"))
-
 
 class Stopwatch:
     def __enter__(self):

@@ -34,13 +34,13 @@ def main(fast):
     os.environ["AWS_PROFILE"] = "abml"
     tests = [
         # , compression=["snappy", "gzip", "brotli", "lz4", "zstd"]
-        *PandasReadTest().from_product(engine=["auto", "pyarrow", "fastparquet"]),
-        *PandasWriteTest().from_product(engine=["auto", "pyarrow", "fastparquet"]),
-        *DaskReadTest().from_product(engine=["auto", "pyarrow", "fastparquet"], storage=["s3", "local"]),
-        *DaskWriteTest().from_product(engine=["auto", "pyarrow", "fastparquet"], storage=["s3", "local"]),
+        *PandasReadTest().from_product(engine=["pyarrow", "fastparquet"], storage=["s3", "local"]),
+        *PandasWriteTest().from_product(engine=["pyarrow", "fastparquet"], storage=["s3", "local"]),
+        *DaskReadTest().from_product(storage=["s3", "local"]),
+        *DaskWriteTest().from_product(storage=["s3", "local"]),
         ]
 
-    params = utils.Params(rows=1024 if fast else 1024**2 , cols=100, cleanup=False)
+    params = utils.Params(rows=1024 if fast else 1024**2 , cols=100, cleanup=True)
     for test in tests:
         test.params = params
         logger.info(test.run())

@@ -66,16 +66,17 @@ NOW = datetime.now().isoformat()
 
 @attr.define(slots=False)
 class StorageTest(Test):
-    local_path: Path = Path(__file__).parent / "tmp" / NOW
-    s3_path: Path = Path(f"s3://tmp-grachev/bench/{NOW}")
+    local_path: str = str(Path(__file__).parent / "tmp" / NOW)
+    s3_path: str = f"s3://tmp-grachev/bench/{NOW}"
     storage: str = "local"
 
     @property
     def path(self):
-        if self.storage == "local":
-            return self.local_path / self.id
-        elif self.storage == "s3":
-            return self.s3_path / self.id
+        match self.storage:
+            case "local":
+                return f"{self.local_path}/{self.id}"
+            case "s3":
+                return f"{self.s3_path}/{self.id}"
         
     def _teardown(self):
         if self.params.cleanup:
