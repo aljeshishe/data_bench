@@ -4,9 +4,9 @@ import itertools
 from multiprocessing import Process, Queue
 from pathlib import Path
 import attr
-import utils
 from loguru import logger
-from resutls import Result, ExceptionResult
+from .resutls import Result, ExceptionResult
+from . import utils
 
 @attr.define(slots=False)
 class Test:

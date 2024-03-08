@@ -1,8 +1,8 @@
 
 import attr
 import pandas as pd
-from test import Test, StorageTest
-import utils
+from .test import Test, StorageTest
+from . import utils
 
 import dask.array as da
 import dask.dataframe as dd
@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 import human_readable as hr
-import utils
+from . import utils
 
 
 
