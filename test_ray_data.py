@@ -22,7 +22,6 @@ def main(create_dataset):
     cols = 100
 
     if create_dataset:
-        # create dataset in s3
         utils.remove(s3_uri)
         utils.write_dummy_dataset(s3_uri, mvalues=mvalues, part_mvalues=part_mvalues, cols=cols)
 
@@ -39,7 +38,7 @@ def main(create_dataset):
     total_start_ts = time.time()
     with tqdm(total=ds.count() // batch_size) as pbar:
         start_ts = time.time()
-        train_dataloader = ds.iter_torch_batches(batch_size=batch_size, dtypes=torch.float32)
+        train_dataloader = ds.iter_torch_batches(batch_size=batch_size)
         for batch in train_dataloader:
             mvalues_per_sec = cols * batch_size / (time.time() - start_ts) / M
             start_ts = time.time()
