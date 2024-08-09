@@ -38,14 +38,13 @@ def main(create_dataset):
     # row_count = dataset.count()
     # Use iter_batches to iterate over batches directly
     total_start_ts = time.time()
-    with tqdm(total=total_rows // batch_size) as pbar:
-        start_ts = time.time()
-        train_dataloader = ds.iter_torch_batches(batch_size=batch_size, device="cuda")
+    with tqdm(total=total_rows * cols //  M, unit="Mvalues") as pbar:
+        logger.info("iter_torch_batches")
+        train_dataloader = ds.iter_torch_batches(batch_size=batch_size)
+        logger.info("for")
         for batch in train_dataloader:
-            mvalues_per_sec = cols * batch_size / (time.time() - start_ts) / M
-            start_ts = time.time()
-            pbar.set_postfix_str(f"mvalues/s={mvalues_per_sec:.2f}")
-            pbar.update()
+            logger.info("update")
+            pbar.update(len(batch["data"]) * cols // M)
 
     total_mvalues_per_sec = cols * total_rows / M / (time.time() - total_start_ts)
     logger.info(f"Total mvalues/s={total_mvalues_per_sec:.2f}")
