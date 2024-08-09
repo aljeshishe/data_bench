@@ -38,7 +38,7 @@ def main(create_dataset):
     total_start_ts = time.time()
     with tqdm(total=ds.count() // batch_size) as pbar:
         start_ts = time.time()
-        train_dataloader = ds.iter_torch_batches(batch_size=batch_size)
+        train_dataloader = ds.iter_torch_batches(batch_size=batch_size, device="cpu")
         for batch in train_dataloader:
             mvalues_per_sec = cols * batch_size / (time.time() - start_ts) / M
             start_ts = time.time()
