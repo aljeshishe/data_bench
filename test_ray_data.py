@@ -24,8 +24,8 @@ utils.write_dummy_dataset(s3_uri, mvalues=mvalues, part_mvalues=part_mvalues, co
 
 ray.data.set_progress_bars(False)
 ray.init(logging_level="INFO")
-dataset = ray.data.read_parquet(s3_uri)
-logger.info(f"Dataset: rows={dataset.count()} cols={len(dataset.columns())}")
+ds = ray.data.read_parquet(s3_uri)
+logger.info(f"Dataset: rows={ds.count()} cols={len(ds.columns())}")
 
 # Define batch size and shuffle the dataset
 batch_size = 1024 * 1024
@@ -33,9 +33,10 @@ batch_size = 1024 * 1024
 # row_count = dataset.count()
 # Use iter_batches to iterate over batches directly
 total_start_ts = time.time()
-with tqdm(total=dataset.count() // batch_size) as pbar:
+with tqdm(total=ds.count() // batch_size) as pbar:
     start_ts = time.time()
-    for batch in (dataset.iter_batches(batch_size=batch_size, batch_format="numpy")):
+    train_dataloader = ds.iter_torch_batches(batch_size=batch_size, dtypes=torch.float32)
+    for batch in train_dataloader:
         mvalues_per_sec = cols * batch_size / (time.time() - start_ts) / M
         start_ts = time.time()
         pbar.set_postfix_str(f"mvalues/s={mvalues_per_sec:.2f}")
@@ -44,5 +45,5 @@ with tqdm(total=dataset.count() // batch_size) as pbar:
         # columns = [col for col in X.columns if col != "COIN"]
         # tensors = {col: torch.tensor(X[columns].values, dtype=torch.float32) for col in columns}
 
-total_mvalues_per_sec = cols * dataset.count() / M / (time.time() - total_start_ts)
+total_mvalues_per_sec = cols * ds.count() / M / (time.time() - total_start_ts)
 logger.info(f"Total mvalues/s={total_mvalues_per_sec:.2f}")
