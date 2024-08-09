@@ -18,7 +18,7 @@ dotenv.load_dotenv()
 def main(create_dataset):
     # params
     s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.parquet"
-    mvalues = 30000 # 20 GB
+    mvalues = 3000 # 20 GB
     part_mvalues = 8
     cols = 100
 
