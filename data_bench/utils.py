@@ -1,3 +1,6 @@
+import boto3
+from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urlparse
 import urllib
 from pathlib import Path
 import shutil
@@ -11,6 +14,12 @@ import dask.dataframe as dd
 import pandas as pd
 import numpy as np
 import boto3
+
+GB = 1024 * 1024 * 1024
+MB = 1024 * 1024
+
+G = 1024 * 1024 * 1024
+M = 1024 * 1024
 
 def remove(path:  str):
     if str(path).startswith("s3"):
@@ -55,7 +64,30 @@ def dask_df(rows, cols):
     return dd.from_dask_array(data, columns=column_names).persist()
 
 def pandas_df(rows, cols):
-    df = pd.DataFrame(np.random.rand(rows, cols))
+    df = pd.DataFrame(np.random.rand(rows, cols).astype('float32'))
     df.columns = [f"col_{i}" for i in range(cols)]
     return df
-                
+
+def write_dummy_dataset(path: str, mvalues: int, part_mvalues: int, cols: int):
+    rows = part_mvalues * M // cols
+    logger.info(f"Creating df with {cols=} {rows=}")
+    df = pandas_df(rows=rows, cols=cols)
+    file_path = f"{path}/0.parquet"
+    df.to_parquet(file_path, index=False, engine='pyarrow')
+    
+    
+    parts_count = mvalues // part_mvalues
+    logger.info(f"Creating {parts_count} copies")
+    with ThreadPoolExecutor(32) as pool:
+        for i in range(1, parts_count):
+            pool.submit(copy_file, src=file_path, dst=f"{path}/{i}.parquet")
+
+def copy_file(src, dst):
+    src_parsed = urlparse(src)
+    dst_parsed = urlparse(dst)
+    boto3.client('s3').copy_object(
+        CopySource=dict(Bucket=src_parsed.netloc, Key=src_parsed.path.lstrip('/')),
+        Bucket=dst_parsed.netloc,
+        Key=dst_parsed.path.lstrip('/')
+    )
+    

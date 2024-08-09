@@ -64,7 +64,7 @@ class Test:
 
 NOW = datetime.now().isoformat()
 
-@attr.define(slots=False)
+@attr.define(slots=False)   
 class StorageTest(Test):
     local_path: str = str(Path(__file__).parent / "tmp" / NOW)
     s3_path: str = f"s3://tmp-grachev/bench/{NOW}"
