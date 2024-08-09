@@ -71,16 +71,23 @@ def pandas_df(rows, cols):
 def write_dummy_dataset(path: str, mvalues: int, part_mvalues: int, cols: int):
     rows = part_mvalues * M // cols
     logger.info(f"Creating df with {cols=} {rows=}")
-    df = pandas_df(rows=rows, cols=cols)
-    file_path = f"{path}/0.parquet"
-    df.to_parquet(file_path, index=False, engine='pyarrow')
-    
+    file_path = f"{path}/0.npy"
+    tmp_path = f"/tmp/0.npy"
+    array = np.random.rand(rows, cols).astype(np.float32)
+    np.save(tmp_path, array)
+    upload_file(tmp_path, file_path)
     
     parts_count = mvalues // part_mvalues
     logger.info(f"Creating {parts_count} copies")
     with ThreadPoolExecutor(32) as pool:
         for i in range(1, parts_count):
-            pool.submit(copy_file, src=file_path, dst=f"{path}/{i}.parquet")
+            pool.submit(copy_file, src=file_path, dst=f"{path}/{i}.npy")
+
+
+def upload_file(path, dst):
+    dst_parsed = urlparse(dst)
+    boto3.client('s3').upload_file(path, dst_parsed.netloc, dst_parsed.path.lstrip('/'))
+
 
 def copy_file(src, dst):
     src_parsed = urlparse(src)
