@@ -25,7 +25,7 @@ def main(create_dataset):
         utils.remove(s3_uri)
         utils.write_dummy_dataset(s3_uri, mvalues=mvalues, part_mvalues=part_mvalues, cols=cols)
 
-    ray.data.set_progress_bars(False)
+    ray.data.DataContext.get_current().enable_progress_bars = False
     ray.init(logging_level="INFO")
     ds = ray.data.read_parquet(s3_uri)
     logger.info(f"Dataset: rows={ds.count()} cols={len(ds.columns())}")
