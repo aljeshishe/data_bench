@@ -1,0 +1,48 @@
+import time
+import ray
+import ray.data
+import torch
+from torch.utils.data import DataLoader, Dataset
+from data_bench import utils
+from data_bench.utils import M
+from tqdm import tqdm
+from loguru import logger
+import dotenv 
+
+
+dotenv.load_dotenv()
+
+# params
+s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.parquet"
+mvalues = 3000 # 20 GB
+part_mvalues = 8
+cols = 100
+
+# create dataset in s3
+utils.remove(s3_uri)
+utils.write_dummy_dataset(s3_uri, mvalues=mvalues, part_mvalues=part_mvalues, cols=cols)
+
+ray.data.set_progress_bars(False)
+ray.init(logging_level="INFO")
+dataset = ray.data.read_parquet(s3_uri)
+logger.info(f"Dataset: rows={dataset.count()} cols={len(dataset.columns())}")
+
+# Define batch size and shuffle the dataset
+batch_size = 1024 * 1024
+# dataset = dataset.random_shuffle()  # Shuffle the entire dataset
+# row_count = dataset.count()
+# Use iter_batches to iterate over batches directly
+total_start_ts = time.time()
+with tqdm(total=dataset.count() // batch_size) as pbar:
+    start_ts = time.time()
+    for batch in (dataset.iter_batches(batch_size=batch_size, batch_format="numpy")):
+        mvalues_per_sec = cols * batch_size / (time.time() - start_ts) / M
+        start_ts = time.time()
+        pbar.set_postfix_str(f"mvalues/s={mvalues_per_sec:.2f}")
+        pbar.update()
+        # X = batch["X"]
+        # columns = [col for col in X.columns if col != "COIN"]
+        # tensors = {col: torch.tensor(X[columns].values, dtype=torch.float32) for col in columns}
+
+total_mvalues_per_sec = cols * dataset.count() / M / (time.time() - total_start_ts)
+logger.info(f"Total mvalues/s={total_mvalues_per_sec:.2f}")
