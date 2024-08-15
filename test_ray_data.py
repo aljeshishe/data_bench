@@ -11,6 +11,8 @@ from loguru import logger
 import dotenv 
 import os 
 
+def preprocess(batch):
+    return batch
 
 dotenv.load_dotenv()
 @click.command()
@@ -32,18 +34,17 @@ def main(create_dataset):
     total_rows = ds.count()
     logger.info(f"Dataset: rows={total_rows} cols={cols}")
 
+    # ds = ds.map_batches(preprocess)
+    # ds = ds.materialize()
     # Define batch size and shuffle the dataset
-    batch_size = 1024 * 1024
+    batch_size = 800_000
     # dataset = dataset.random_shuffle()  # Shuffle the entire dataset
     # row_count = dataset.count()
     # Use iter_batches to iterate over batches directly
     total_start_ts = time.time()
     with tqdm(total=total_rows * cols //  M, unit="Mvalues") as pbar:
-        logger.info("iter_torch_batches")
         train_dataloader = ds.iter_torch_batches(batch_size=batch_size)
-        logger.info("for")
         for batch in train_dataloader:
-            logger.info("update")
             pbar.update(len(batch["data"]) * cols // M)
 
     total_mvalues_per_sec = cols * total_rows / M / (time.time() - total_start_ts)
@@ -52,4 +53,7 @@ def main(create_dataset):
 
 if __name__ == "__main__":
     main()
-    
+
+# mvalues/s=123.55 with preprocessing
+# mvalues/s=208.62 with preprocessing and materialize
+# mvalues/s=569.62 no preprocessing
