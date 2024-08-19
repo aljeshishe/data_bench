@@ -47,8 +47,8 @@ def dataset_iterator(s3_dir, workers: int = os.cpu_count()):
 @click.option("-c", "--create_dataset", is_flag=True)
 def main(create_dataset):
     # params
-    s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.parquet"
-    mvalues = 9000 # 20 GB
+    s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.numpy"
+    mvalues = 3000 # 20 GB
     part_mvalues = 8
     cols = 100
 

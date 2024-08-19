@@ -33,8 +33,6 @@ dotenv.load_dotenv()
 @click.command()
 def main():
     s3_uri = "s3://alblml/kaggle/preprocessing/240813_132219_XVEN"
-
-
     ray.data.DataContext.get_current().enable_progress_bars = False
     ray.init(logging_level="INFO")
     ds = ray.data.read_parquet(s3_uri)
