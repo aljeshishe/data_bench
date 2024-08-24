@@ -1,3 +1,4 @@
+import json
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 import socket
@@ -13,53 +14,71 @@ session = boto3.Session()
 client = session.client('ec2')
 
 # Define the EC2 instance parameters
-instance_params = {
-    'MaxCount': 1,
-    'MinCount': 1,
-    'ImageId': 'ami-0162fe8bfebb6ea16',
-    'InstanceType': 'r5.4xlarge',
-    'KeyName': 'grachev_ab_aws_key',
-    'EbsOptimized': False,
-    'BlockDeviceMappings': [
-        {
-            'DeviceName': '/dev/xvda',
-            'Ebs': {
-                'Encrypted': False,
-                'DeleteOnTermination': True,
-                'SnapshotId': 'snap-0c835b29a011f5143',
-                'VolumeSize': 200,
-                'VolumeType': 'gp3'
-            }
-        }
-    ],
-    'NetworkInterfaces': [
-        {
-            'SubnetId': 'subnet-0e8b8c23ddb1ada49',
-            'AssociatePublicIpAddress': True,
-            'DeviceIndex': 0,
-            'Groups': [
-                'sg-0004eeb822745ac47'
-            ]
-        }
-    ],
-    'InstanceMarketOptions': {
-        'MarketType': 'spot'
-    },
-    'MetadataOptions': {
-        'HttpEndpoint': 'enabled',
-        'HttpPutResponseHopLimit': 2,
-        'HttpTokens': 'required'
-    },
-    'PrivateDnsNameOptions': {
-        'HostnameType': 'ip-name',
-        'EnableResourceNameDnsARecord': False,
-        'EnableResourceNameDnsAAAARecord': False
+#
+# ami-00c79d83cf718a893 Amazon linux 2023 13 secs
+# ami-0cab37bd176bb80d3 ubuntu 24.04 15-20 secs
+# ami-0162fe8bfebb6ea16 ubuntu 22.04 16-17 secs
+instance_params = """{
+  "MaxCount": 1,
+  "MinCount": 1,
+  "ImageId": "ami-07b52a7a38d09d6f7",
+  "InstanceType": "c5.18xlarge",
+  "KeyName": "grachev_ab_aws_key",
+  "EbsOptimized": true,
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/xvda",
+      "Ebs": {
+        "Encrypted": false,
+        "DeleteOnTermination": true,
+        "Iops": 3000,
+        "SnapshotId": "snap-017e22242ecff9455",
+        "VolumeSize": 500,
+        "VolumeType": "gp3",
+        "Throughput": 125
+      }
     }
-}
+  ],
+  "NetworkInterfaces": [
+    {
+      "SubnetId": "subnet-0604a4cc2fedcce55",
+      "AssociatePublicIpAddress": true,
+      "DeviceIndex": 0,
+      "Groups": [
+        "sg-0004eeb822745ac47"
+      ]
+    }
+  ],
+  "TagSpecifications": [
+    {
+      "ResourceType": "instance",
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "tmp-grachev"
+        }
+      ]
+    }
+  ],
+  "InstanceMarketOptions": {
+    "MarketType": "spot"
+  },
+  "MetadataOptions": {
+    "HttpEndpoint": "enabled",
+    "HttpPutResponseHopLimit": 2,
+    "HttpTokens": "required"
+  },
+  "PrivateDnsNameOptions": {
+    "HostnameType": "ip-name",
+    "EnableResourceNameDnsARecord": false,
+    "EnableResourceNameDnsAAAARecord": false
+  }
+}"""
+
 def test(i):
     start = time.time()
     # Launch the EC2 instance
-    response = client.run_instances(**instance_params)
+    response = client.run_instances(**json.loads(instance_params))
     instance_id = response['Instances'][0]['InstanceId']
     print(f'Launched instance with ID: {instance_id}')
 
