@@ -17,7 +17,8 @@ import human_readable as hr
 dotenv.load_dotenv()
 @click.command()
 @click.option("-c", "--create_dataset", is_flag=True)
-def main(create_dataset):
+@click.option("-p", "--prefetch_batches", type=int, default=3)
+def main(create_dataset, prefetch_batches):
     # params
     s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.parquet"
     mvalues = 12
@@ -37,7 +38,7 @@ def main(create_dataset):
     ray.init(logging_level="INFO")
     ds = ray.data.read_parquet(s3_uri)
 
-    train_dataloader = ds.iter_torch_batches(batch_size=batch_size)
+    train_dataloader = ds.iter_torch_batches(batch_size=batch_size, prefetch_batches=prefetch_batches)
     utils.benchmark(utils.iter_timeit(train_dataloader), total_mvalues=mvalues * n_files)
 
     print(ds.stats())
@@ -55,3 +56,10 @@ if __name__ == "__main__":
 # p75=0.42
 # p90=0.50
 # Total mvalues/s=143.67
+
+# g4dn.12xlarge prefetch_batches=3
+# p25=0.06
+# p50=0.10
+# p75=0.13
+# p90=0.17
+# Total mvalues/s=380.50
