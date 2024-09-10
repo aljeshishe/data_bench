@@ -1,3 +1,4 @@
+import s3fs
 import boto3
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urlparse
@@ -7,13 +8,12 @@ import shutil
 import time
 from loguru import logger
 import human_readable as hr
-from datetime import datetime 
 import attr
 import dask.array as da
 import dask.dataframe as dd
 import pandas as pd
 import numpy as np
-import boto3
+from tqdm import tqdm
 
 GB = 1024 * 1024 * 1024
 MB = 1024 * 1024
@@ -68,33 +68,92 @@ def pandas_df(rows, cols):
     df.columns = [f"col_{i}" for i in range(cols)]
     return df
 
-def write_dummy_dataset(path: str, mvalues: int, part_mvalues: int, cols: int):
-    rows = part_mvalues * M // cols
+def write_parquet_dataset(path: str, mvalues: int, cols: int):
+    rows = mvalues * M // cols
+    logger.info(f"Creating df with {cols=} {rows=}")
+    file_path = f"{path}/0.parquet"
+    pandas_df(rows=rows, cols=cols).to_parquet(file_path)
+    return file_path
+
+def write_tensors_parquet_dataset(path: str, mvalues: int, cols: int):
+    rows = mvalues * M // cols
+    logger.info(f"Creating df with {cols=} {rows=}")
+    file_path = f"{path}/0.parquet"
+    array = np.random.rand(rows, cols).astype(np.float32).tolist()
+    pd.DataFrame(dict(X=array)).to_parquet(file_path)
+    return file_path
+
+      
+def write_numpy_dataset(path: str, mvalues: int, cols: int):
+    rows = mvalues * M // cols
     logger.info(f"Creating df with {cols=} {rows=}")
     file_path = f"{path}/0.npy"
     tmp_path = f"/tmp/0.npy"
     array = np.random.rand(rows, cols).astype(np.float32)
     np.save(tmp_path, array)
     upload_file(tmp_path, file_path)
+    return file_path
     
-    parts_count = mvalues // part_mvalues
-    logger.info(f"Creating {parts_count} copies")
+def clone_s3_file(file_path:str, n_files:int):
+    logger.info(f"Creating {n_files} copies")
+    file_name, _, ext = file_path.rpartition(".")
     with ThreadPoolExecutor(32) as pool:
-        for i in range(1, parts_count):
-            pool.submit(copy_file, src=file_path, dst=f"{path}/{i}.npy")
+        for i in range(1, n_files):
+            pool.submit(copy_file, src=file_path, dst=f"{file_name}_{i}.{ext}")
 
 
 def upload_file(path, dst):
     dst_parsed = urlparse(dst)
-    boto3.client('s3').upload_file(path, dst_parsed.netloc, dst_parsed.path.lstrip('/'))
+    boto3.client("s3").upload_file(path, dst_parsed.netloc, dst_parsed.path.lstrip("/"))
 
 
 def copy_file(src, dst):
     src_parsed = urlparse(src)
     dst_parsed = urlparse(dst)
-    boto3.client('s3').copy_object(
-        CopySource=dict(Bucket=src_parsed.netloc, Key=src_parsed.path.lstrip('/')),
+    boto3.client("s3").copy_object(
+        CopySource=dict(Bucket=src_parsed.netloc, Key=src_parsed.path.lstrip("/")),
         Bucket=dst_parsed.netloc,
-        Key=dst_parsed.path.lstrip('/')
+        Key=dst_parsed.path.lstrip("/")
     )
     
+def s3_dir_size(s3_uri: str) -> int:
+    s3 = s3fs.S3FileSystem()
+
+    file_list = s3.ls(s3_uri)
+    total_size = 0
+    for file in file_list:
+        file_info = s3.info(file)
+        if not file_info["type"] == "directory":
+            total_size += file_info["size"]
+    return total_size
+
+
+def iter_timeit(iter):
+    start_ts = time.time()
+    elapsed_values = []
+    for batch in iter:
+        elapsed = time.time() - start_ts
+        elapsed_values.append(elapsed)
+        logger.info(f"gen time {elapsed:.2f}s")
+        yield batch
+        start_ts = time.time()
+    
+    logger.info("Percentiles")
+    percentiles = [25, 50, 75, 90]
+    for p in percentiles:
+        p_val = np.percentile(elapsed_values, p)
+        logger.info(f"p{p}={p_val:.2f}")
+        
+                
+def benchmark(ds, total_mvalues=None):
+    counter = 0
+    with tqdm(unit="Mvalues", total=total_mvalues) as pbar:
+        total_start_ts = time.time()
+        logger.info("start")
+        for batch in ds:
+            n_values = sum(tensor.numel() for tensor in batch.values())
+            pbar.update(n_values // 1000**2)
+            counter += n_values
+        total_mvalues_per_sec = counter // 1000**2  / (time.time() - total_start_ts)
+        logger.info(f"Total mvalues/s={total_mvalues_per_sec:.2f}")
+        
