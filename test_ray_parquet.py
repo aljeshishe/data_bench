@@ -86,8 +86,22 @@ if __name__ == "__main__":
 # Total mvalues/s=82.70
 
 # g4dn.12xlarge prefetch_batches=3
-# p25=0.06
-# p50=0.10
+# p25=0.04
+# p50=0.07
 # p75=0.13
-# p90=0.17
-# Total mvalues/s=380.50
+# p90=0.22
+# Total mvalues/s=405.92
+
+# g4dn.12xlarge prefetch_batches=3 -0
+# p25=0.24
+# p50=0.34
+# p75=0.44
+# p90=0.63
+# Total mvalues/s=134.71
+
+# g4dn.12xlarge prefetch_batches=3 -m
+# p25=0.00
+# p50=0.06
+# p75=0.41
+# p90=0.60
+# Total mvalues/s=212.12
