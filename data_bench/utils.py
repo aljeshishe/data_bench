@@ -1,3 +1,5 @@
+import pyarrow as pa
+import pyarrow.parquet as pq
 import s3fs
 import boto3
 from concurrent.futures import ThreadPoolExecutor
@@ -83,6 +85,16 @@ def write_tensors_parquet_dataset(path: str, mvalues: int, cols: int):
     pd.DataFrame(dict(X=array)).to_parquet(file_path)
     return file_path
 
+def write_tensors_parquet_dataset_new(path: str, mvalues: int, cols: int):
+    rows = mvalues * M // cols
+    logger.info(f"Creating df with {cols=} {rows=}")
+    file_path = f"{path}/0.parquet"
+    arr = np.random.rand(rows, cols).astype(np.float32)
+    extension_array = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+    table = pa.table(dict(X=extension_array))
+    pq.write_table(table, file_path)
+    return file_path
+
       
 def write_numpy_dataset(path: str, mvalues: int, cols: int):
     rows = mvalues * M // cols
@@ -128,13 +140,14 @@ def s3_dir_size(s3_uri: str) -> int:
     return total_size
 
 
-def iter_timeit(iter):
+def iter_timeit(iter, verbose=False):
     start_ts = time.time()
     elapsed_values = []
     for batch in iter:
         elapsed = time.time() - start_ts
         elapsed_values.append(elapsed)
-        logger.info(f"gen time {elapsed:.2f}s")
+        if verbose:
+            logger.info(f"Batch creation time {elapsed:.2f}s")
         yield batch
         start_ts = time.time()
     
@@ -157,3 +170,8 @@ def benchmark(ds, total_mvalues=None):
         total_mvalues_per_sec = counter // 1000**2  / (time.time() - total_start_ts)
         logger.info(f"Total mvalues/s={total_mvalues_per_sec:.2f}")
         
+def show_dataloader_info(dataloader):
+    batch = next(iter(dataloader))
+    batch_info_str = " ".join(f"{k}:{v.shape}" for k, v in batch.items())
+    logger.info(f"batch: {batch_info_str}")
+    
