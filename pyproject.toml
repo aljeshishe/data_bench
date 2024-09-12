@@ -24,6 +24,7 @@ modin = "0.26.1"
 torch = "2.3.1"
 smart-open = {extras = ["s3"], version = "^7.0.4"}
 millify = "^0.1.1"
+setuptools = "69.5.1"
 
 
 [build-system]
