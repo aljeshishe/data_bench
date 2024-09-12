@@ -13,12 +13,17 @@ import dotenv
 import os 
 import human_readable as hr
 
-
+def collate_fn(batch):
+    tensor = torch.stack([torch.as_tensor(array) for array in batch.values()], axis=1)
+    return dict(X=tensor)
+    
 dotenv.load_dotenv()
 @click.command()
 @click.option("-c", "--create_dataset", is_flag=True)
 @click.option("-p", "--prefetch_batches", type=int, default=3)
-def main(create_dataset, prefetch_batches):
+@click.option("-o", "--collate", is_flag=True)
+@click.option("-m", "--map_batches", is_flag=True)
+def main(create_dataset, prefetch_batches, collate, map_batches):
     # params
     s3_uri = "s3://ab-users/grachev/ray_benchmark/20gb.parquet"
     mvalues = 12
@@ -38,7 +43,16 @@ def main(create_dataset, prefetch_batches):
     ray.init(logging_level="INFO")
     ds = ray.data.read_parquet(s3_uri)
 
-    train_dataloader = ds.iter_torch_batches(batch_size=batch_size, prefetch_batches=prefetch_batches)
+    if collate:
+        logger.info(f"Merging columns in collate_fn")
+
+    if map_batches:
+        logger.info(f"Merging columns in map_batches")
+        ds = ds.map_batches(collate_fn)
+        
+    train_dataloader = ds.iter_torch_batches(batch_size=batch_size, prefetch_batches=prefetch_batches, collate_fn=collate_fn if collate else None)
+    utils.show_dataloader_info(train_dataloader)
+    
     utils.benchmark(utils.iter_timeit(train_dataloader), total_mvalues=mvalues * n_files)
 
     print(ds.stats())
@@ -56,6 +70,20 @@ if __name__ == "__main__":
 # p75=0.42
 # p90=0.50
 # Total mvalues/s=143.67
+
+# r5.4xlarge with -o
+# p25=0.11
+# p50=0.33
+# p75=0.60
+# p90=0.91
+# Total mvalues/s=119.05
+
+# r5.4xlarge with -m
+# p25=0.37
+# p50=0.49
+# p75=0.71
+# p90=1.04
+# Total mvalues/s=82.70
 
 # g4dn.12xlarge prefetch_batches=3
 # p25=0.06
