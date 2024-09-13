@@ -67,25 +67,28 @@ class request_resources:
 def remove(path:  str):
     parsed = urlparse(path)
     boto3.resource('s3').Bucket(parsed.netloc).objects.filter(Prefix=parsed.path.lstrip("/")).delete()
-    return 
 
 def create_expr(start: datetime, end: datetime, span: timedelta):
     expr = (pc.field("__index_level_0__") < datetime(2000, 1, 1, 0))
-    dt = datetime.fromisoformat('2024-05-01')
-    while dt <  datetime.fromisoformat('2024-06-30'):
-        logger.info(f"period {dt:%Y-%m-%d %H:%M} -> {dt + span:%Y-%m-%d %H:%M}")
-        expr = expr | ((pc.field("__index_level_0__") > dt) & (pc.field("__index_level_0__") < dt + span))
-        dt += span * 2
+    while start <  end:
+        logger.info(f"period {start:%Y-%m-%d %H:%M} -> {start + span:%Y-%m-%d %H:%M}")
+        expr = expr | ((pc.field("__index_level_0__") > start) & (pc.field("__index_level_0__") < start + span))
+        start += span * 2
     
 def main():
-    PATH = "s3://alblml/kaggle/preprocessing/240909_101936_VSD0"
-    # PATH = "s3://alblml/kaggle/preprocessing/240813_132219_XVEN"
-    ray.init()
     logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     logging.getLogger("botocore").setLevel(logging.WARNING)
     logging.getLogger("boto3").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
-    with request_resources(num_cpus=700) as resources:
+
+    logger.info("Starting")
+
+    # PATH = "s3://alblml/kaggle/preprocessing/240910_142947_83PD" # test dataset
+    PATH = "s3://alblml/kaggle/preprocessing/240911_141548_1IT4" # full dataset
+    # PATH = "s3://alblml/kaggle/preprocessing/240813_132219_XVEN"
+    # PATH = "s3://alblml/kaggle/preprocessing/240813_132219_XVEN"
+    
+    with request_resources(num_cpus=1) as resources:
         resources.wait()
 
         expr = create_expr(start=datetime.fromisoformat('2024-05-01'), end=datetime.fromisoformat('2024-06-30'), span=timedelta(hours=8))
@@ -99,7 +102,7 @@ def main():
             logger.info(f"random_shuffle Elapsed={sw.elapsed:.2f}")
         
         with Stopwatch() as sw:
-            out_path = f"{PATH}_train"
+            out_path = f"{PATH}_test"
             logger.info(f"Writing to {out_path}")
             remove(out_path)
             ds.write_parquet(out_path) 
@@ -107,12 +110,11 @@ def main():
             logger.info(ds.stats())
 
     
-# def main():
-#     ray.init(address='ray://18.177.232.240:10001', ignore_reinit_error=True, include_dashboard=False, logging_level='info')
-#     print(ray.get(func.remote()))
     
 if __name__ == "__main__":
-    main()
+    ray.init(ignore_reinit_error=True, include_dashboard=False, logging_level='info')
+    print(ray.get(ray.remote(num_cpus=0)(main).remote()))
+    # main()
     
 # local shuffle  of numpy files: 682.41s
 # local shuffle  of numpy files: 916.57 use_push_based_shuffle = True
