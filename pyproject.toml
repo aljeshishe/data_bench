@@ -18,7 +18,7 @@ jupyter = "^1.0.0"
 python-dotenv = "^1.0.1"
 s3fs = {extras = ["boto3"], version = "^2024.2.0"}
 tqdm = "^4.66.2"
-ray = "2.9.2"
+ray = {version = "2.34.0", extras = ["default"]}
 grpcio = "^1.62.1"
 modin = "0.26.1"
 torch = "2.3.1"
