@@ -23,7 +23,7 @@ client = session.client('ec2')
 instance_params = """{
   "MaxCount": 1,
   "MinCount": 1,
-  "ImageId": "ami-07b52a7a38d09d6f7",
+  "ImageId": "ami-0b91d972a18405725",
   "InstanceType": "g4dn.12xlarge",
   "KeyName": "grachev_ab_aws_key",
   "EbsOptimized": true,
@@ -48,6 +48,19 @@ instance_params = """{
       ]
     }
   ],
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+        "Encrypted": false,
+        "DeleteOnTermination": true,
+        "Iops": 3000,
+        "SnapshotId": "snap-0690f32038e7a1dd2",
+        "VolumeSize": 300,
+        "VolumeType": "gp3"
+      }
+    }
+  ],  
   "InstanceMarketOptions": {
     "MarketType": "spot"
   },

@@ -4,9 +4,9 @@ from loguru import logger
 
 def main():
     #  ray.data.DataContext.get_current().use_push_based_shuffle = False
-    ray.init(address='local', ignore_reinit_error=True, include_dashboard=False, logging_level='warning')
-    ds = ray.data.read_numpy("s3://alblml/kaggle/preprocessing/240904_171741_EDIM/X")
-    # ds = ray.data.read_parquet("s3://alblml/kaggle/preprocessing/240904_171741_EDIM_parquet")
+    # ray.init(address='local', ignore_reinit_error=True, include_dashboard=False, logging_level='warning')
+    # ds = ray.data.read_numpy("s3://alblml/kaggle/preprocessing/240904_171741_EDIM/X")
+    ds = ray.data.read_parquet("s3://alblml/kaggle/preprocessing/240911_141548_1IT4_val")
  
     start_ts = time.time()
     ds.random_shuffle().materialize()
