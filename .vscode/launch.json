@@ -51,10 +51,19 @@
             "justMyCode": false
         },
         {
-            "name": "Python Debugger: test_ray_data.py ",
+            "name": "Python Debugger: test_ray_numpy.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "test_ray_data.py",
+            "program": "test_ray_numpy.py",
+            "console": "integratedTerminal",
+            "args": "-c",
+            "justMyCode": false
+        },
+        {
+            "name": "Python Debugger: test_ray_parquet.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "test_ray_parquet.py",
             "console": "integratedTerminal",
             "args": "",
             "justMyCode": false

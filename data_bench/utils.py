@@ -1,3 +1,9 @@
+from fsspec import AbstractFileSystem
+import fsspec
+from fsspec.implementations.local import LocalFileSystem
+from tempfile import NamedTemporaryFile
+from safetensors.torch import save as safetensors_save
+import torch
 import pyarrow as pa
 import pyarrow.parquet as pq
 import s3fs
@@ -23,18 +29,11 @@ MB = 1024 * 1024
 G = 1024 * 1024 * 1024
 M = 1024 * 1024
 
-def remove(path:  str):
-    if str(path).startswith("s3"):
-        parsed = urllib.parse.urlparse(path)
-        boto3.resource('s3').Bucket(parsed.netloc).objects.filter(Prefix=parsed.path.lstrip("/")).delete()
-        return 
-        
-    path = Path(path)
-    if path.is_dir():
-        shutil.rmtree(path)
-    elif path.is_file():
-        path.unlink()
-
+def remove(path:  str, fs=None):
+    fs = fs or fsspec.filesystem(fsspec.utils.get_protocol(path))
+    if fs.exists(path):
+        fs.rm(path, recursive=True)
+    
 class Stopwatch:
     def __enter__(self):
         self.start = time.time()
@@ -70,10 +69,23 @@ def pandas_df(rows, cols):
     df.columns = [f"col_{i}" for i in range(cols)]
     return df
 
+def tensor(rows, cols, dtype=torch.float32, device="cpu"):
+    logger.info(f"Creating tensor with {cols=} {rows=}")
+    return torch.rand(rows, cols, dtype=dtype, device=device)
+
+def write_safetensors(tensor, path, fs=None):
+    logger.info(f"Writing tensor to {path}")
+    file_path = f"{path}/0.st"
+    fs = fs or fsspec.filesystem(fsspec.utils.get_protocol(path))
+    fs.mkdir(path, create_parents=True)
+    with fs.open(file_path, "wb") as fp:
+        fp.write(safetensors_save(dict(X=tensor)))
+    return file_path
+
 def write_parquet_dataset(path: str, mvalues: int, cols: int):
     rows = mvalues * M // cols
     logger.info(f"Creating df with {cols=} {rows=}")
-    file_path = f"{path}/0.parquet"
+    file_path = f"{path}/0.safetensors"
     pandas_df(rows=rows, cols=cols).to_parquet(file_path)
     return file_path
 
@@ -96,23 +108,24 @@ def write_tensors_parquet_dataset_new(path: str, mvalues: int, cols: int):
     return file_path
 
       
-def write_numpy_dataset(path: str, mvalues: int, cols: int):
-    rows = mvalues * M // cols
-    logger.info(f"Creating df with {cols=} {rows=}")
+def write_numpy_dataset(fs: AbstractFileSystem, path: str, rows: int, cols: int):
+    logger.info(f"Creating df with {cols=} {rows=} in {path}")
     file_path = f"{path}/0.npy"
-    tmp_path = f"/tmp/0.npy"
     array = np.random.rand(rows, cols).astype(np.float32)
-    np.save(tmp_path, array)
-    upload_file(tmp_path, file_path)
+    fs.mkdir(path, create_parents=True)
+    with fs.open(file_path, "wb") as fp:
+        np.save(fp, array)
     return file_path
     
-def clone_s3_file(file_path:str, n_files:int):
-    logger.info(f"Creating {n_files} copies")
+def clone_file(file_path:str, n_files:int):
+    logger.info(f"Creating {n_files} copies in {file_path}")
     file_name, _, ext = file_path.rpartition(".")
-    with ThreadPoolExecutor(32) as pool:
-        for i in range(1, n_files):
-            pool.submit(copy_file, src=file_path, dst=f"{file_name}_{i}.{ext}")
+    with ThreadPoolExecutor(60) as pool:
+        for item in tqdm(pool.map(lambda i: copy_file(src=file_path, dst=f"{file_name}_{i}.{ext}"), range(1, n_files)), total=n_files):
+            pass
 
+def clone_s3_file(file_path:str, n_files:int):
+    clone_file(file_path, n_files)
 
 def upload_file(path, dst):
     dst_parsed = urlparse(dst)
@@ -120,14 +133,11 @@ def upload_file(path, dst):
 
 
 def copy_file(src, dst):
-    src_parsed = urlparse(src)
-    dst_parsed = urlparse(dst)
-    boto3.client("s3").copy_object(
-        CopySource=dict(Bucket=src_parsed.netloc, Key=src_parsed.path.lstrip("/")),
-        Bucket=dst_parsed.netloc,
-        Key=dst_parsed.path.lstrip("/")
-    )
-    
+    srcfs = fsspec.filesystem(fsspec.utils.get_protocol(src))
+    dstfs = fsspec.filesystem(fsspec.utils.get_protocol(dst))
+    srcfs.copy(src, dst)
+        
+        
 def s3_dir_size(s3_uri: str) -> int:
     s3 = s3fs.S3FileSystem()
 

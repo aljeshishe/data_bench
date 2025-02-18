@@ -40,7 +40,7 @@ def main(create_dataset, prefetch_batches, collate, map_batches):
     logger.info(f"Dataset: mvalues={mvalues} rows={mvalues // cols} cols={cols} size={size_str}")
 
     ray.data.DataContext.get_current().enable_progress_bars = False
-    ray.init(logging_level="INFO")
+    ray.init(logging_level="INFO", include_dashboard=True, dashboard_host="0.0.0.0")
     ds = ray.data.read_parquet(s3_uri)
 
     if collate:
@@ -51,9 +51,12 @@ def main(create_dataset, prefetch_batches, collate, map_batches):
         ds = ds.map_batches(collate_fn)
         
     train_dataloader = ds.iter_torch_batches(batch_size=batch_size, prefetch_batches=prefetch_batches, collate_fn=collate_fn if collate else None)
-    utils.show_dataloader_info(train_dataloader)
+    # utils.show_dataloader_info(train_dataloader)
+    it = iter(train_dataloader)
+    val1 = next(it)
+    val2 = next(it)
     
-    utils.benchmark(utils.iter_timeit(train_dataloader), total_mvalues=mvalues * n_files)
+    # utils.benchmark(utils.iter_timeit(train_dataloader), total_mvalues=mvalues * n_files)
 
     print(ds.stats())
 

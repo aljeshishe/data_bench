@@ -1,4 +1,16 @@
 import os
+import safetensors
+from functools import partial
+import time
+from urllib.parse import urlparse
+import click
+from data_bench import utils
+from data_bench.utils import M
+from tqdm import tqdm
+from loguru import logger
+import dotenv 
+
+from multiprocessing import Pool
 import fsspec
 from functools import partial
 import time
@@ -23,11 +35,14 @@ dotenv.load_dotenv()
 def load_and_process_npy(path, fs):
     from torch import multiprocessing as mp
     with fs.open(path, "rb") as f:
-        return torch.from_numpy(np.load(f, allow_pickle=True))
-
+        return safetensors.torch.load(f.read())
+    # with safetensors.safe_open(path, framework="pt", device="cpu") as f:
+    #     return f.get_tensor("X")
+    
 def dataset_iterator(fs, s3_url, pool):
     s3_paths = fs.ls(s3_url)
-    s3_paths = [path for path in s3_paths if path.endswith('.npy')]
+    s3_paths = [path for path in s3_paths if path.endswith('.st')]
+
     yield from pool.imap_unordered(partial(load_and_process_npy, fs=fs), s3_paths)
     # yield from pool.map(load_and_process_npy, s3_paths)
             
@@ -36,8 +51,8 @@ def dataset_iterator(fs, s3_url, pool):
 @click.option("-c", "--create_dataset", is_flag=True)
 def main(create_dataset):
     # params
-    path = "s3://ab-users/grachev/ray_benchmark/40gb_100000rows_numpy"
-    # path = "/opt/dlami/nvme/40gb_100000rows_numpy"
+    path = "s3://ab-users/grachev/ray_benchmark/40gb_100000_rows_st"
+    # path = "/opt/dlami/nvme/40gb_st"
     
     rows = 100_000
     cols = 68
@@ -47,9 +62,9 @@ def main(create_dataset):
 
     if create_dataset:
         utils.remove(path)
-        file_url = utils.write_numpy_dataset(fs=fs, path=path, rows=rows, cols=cols)
-        utils.clone_file(file_url, n_files=n_files)
-
+        file_path = utils.write_safetensors(tensor=utils.tensor(rows=rows, cols=cols), path=path)
+        utils.clone_file(file_path, n_files=n_files)
+    
     if protocol == "file":
         logger.info("Dropping caches")
         os.system('echo 3 | sudo tee /proc/sys/vm/drop_caches')
@@ -72,4 +87,6 @@ def main(create_dataset):
 
 if __name__ == "__main__":
     main()
+    
+    
     
