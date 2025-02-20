@@ -69,18 +69,14 @@ def pandas_df(rows, cols):
     df.columns = [f"col_{i}" for i in range(cols)]
     return df
 
-def tensor(rows, cols, dtype=torch.float32, device="cpu"):
+def write_safetensors_dataset(url: str, rows: int, cols: int):
+    tensor = torch.rand(rows, cols)
     logger.info(f"Creating tensor with {cols=} {rows=}")
-    return torch.rand(rows, cols, dtype=dtype, device=device)
-
-def write_safetensors(tensor, path, fs=None):
-    logger.info(f"Writing tensor to {path}")
-    file_path = f"{path}/0.st"
-    fs = fs or fsspec.filesystem(fsspec.utils.get_protocol(path))
-    fs.mkdir(path, create_parents=True)
-    with fs.open(file_path, "wb") as fp:
-        fp.write(safetensors_save(dict(X=tensor)))
-    return file_path
+    with NamedTemporaryFile(dir="/tmp") as tmp_file:
+        save_file(dict(X=tensor), tmp_file.name)
+        file_url = f"{url}/0.safetensors"
+        upload_file(tmp_file.name, file_url)
+    return file_url
 
 def write_parquet_dataset(path: str, mvalues: int, cols: int):
     rows = mvalues * M // cols
@@ -121,8 +117,8 @@ def clone_file(file_path:str, n_files:int):
     logger.info(f"Creating {n_files} copies in {file_path}")
     file_name, _, ext = file_path.rpartition(".")
     with ThreadPoolExecutor(60) as pool:
-        for item in tqdm(pool.map(lambda i: copy_file(src=file_path, dst=f"{file_name}_{i}.{ext}"), range(1, n_files)), total=n_files):
-            pass
+        for i in range(1, n_files):
+            pool.submit(copy_file, src=file_path, dst=f"{file_name}_{i}.{ext}")
 
 def clone_s3_file(file_path:str, n_files:int):
     clone_file(file_path, n_files)
