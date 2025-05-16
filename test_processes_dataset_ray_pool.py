@@ -85,7 +85,11 @@ if __name__ == "__main__":
 
 # Total mvalues/s=1295.11 first=2.50 - create with tensor.rand, 2 workers
 # Total mvalues/s=453.45  first=9.18 - create with tensor.rand, 40 workers
-# CONCLUSION: many workers slow down transfer data from workers
+# CONCLUSIONS:
+# many workers slow down transfer data from workers
+# first batch delay is not because of data transfer
+# np.load(io.BytesIO(f.read()) - increases speed
+# larger files increase speed 
 # Total mvalues/s=183.58 first=3.70  - s3_npy, 10 workers
 # Total mvalues/s=286.41 first=5.27  - s3_npy, 20 workers
 # Total mvalues/s=302.14 first=9.11  - s3_npy, 40 workers
