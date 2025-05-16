@@ -25,7 +25,10 @@ dotenv.load_dotenv()
 
 def s3_npy(path):
     from multiprocessing.reduction import ForkingPickler
-    fs = pyarrow.fs.S3FileSystem(endpoint_override=f"http://s3.ap-northeast-1.amazonaws.com")
+    if path.startswith("s3://"):
+        fs = pyarrow.fs.S3FileSystem(endpoint_override=f"http://s3.ap-northeast-1.amazonaws.com")
+    else:
+        fs = pyarrow.fs.LocalFileSystem()
     start_ts = time.time()
     with fs.open_input_file(path) as f:
         tensor = torch.from_numpy(np.load(io.BytesIO(f.read()), allow_pickle=True)).to(device="cuda:0")
@@ -55,7 +58,7 @@ def unpickler(iter):
 def main(create_dataset):
     # params
     path = "s3://ab-users/grachev/ray_benchmark/20gb_100000rows_numpy"
-    # path = "/opt/dlami/nvme/40gb_100000rows_numpy"
+    path = "/opt/dlami/nvme/ray_benchmark/20gb_100000rows_numpy"
     
     rows = 100_000
     cols = 68
@@ -93,3 +96,4 @@ if __name__ == "__main__":
 # Total mvalues/s=183.58 first=3.70  - s3_npy, 10 workers
 # Total mvalues/s=286.41 first=5.27  - s3_npy, 20 workers
 # Total mvalues/s=302.14 first=9.11  - s3_npy, 40 workers
+# Total mvalues/s=783.02 first=3.01 - s3_npy local files, 10 workers
