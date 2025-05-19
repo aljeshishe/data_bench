@@ -2,11 +2,9 @@ import io
 import time
 import numpy as np
 import pyarrow
-from safetensors import safe_open
 import safetensors
 import torch
 import pandas as pd
-from loguru import logger
 from data_bench import utils
 
 import numpy as np 
@@ -14,7 +12,6 @@ import time
 import pytest
 from loguru import logger
 
-S3_BASE_PATH = "s3://tmp-grachev"
 ROWS = 800_000
 COLS = 64
 ROUNDS = 5
@@ -31,7 +28,7 @@ def get_path(path_type):
         case "local_ssd":
             return f"/opt/dlami/nvme/data.npy"
         case "s3":
-            return f"{S3_BASE_PATH}/data.npy"
+            return f"s3://tmp-grachev/data.npy"
 
 @pytest.fixture(scope="session", params=["local", "local_ssd", "s3"])
 def numpy_file(request):
@@ -123,7 +120,7 @@ def test_read_safetensors(benchmark, safetensors_file, device):
         if safetensors_file.startswith("s3://"):
             tensor = safetensors.torch.load(read_file(path=safetensors_file))["tensor"].to(device=device)
         else:
-            with safe_open(safetensors_file, framework="pt", device=device) as f:
+            with safetensors.safe_open(safetensors_file, framework="pt", device=device) as f:
                 tensor = f.get_tensor("tensor")
                 print(tensor[0])
             
